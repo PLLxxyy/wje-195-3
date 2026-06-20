@@ -3,12 +3,12 @@ import { WheelOption } from '../types';
 
 interface Props {
   options: WheelOption[];
+  excludedOptionIds: string[];
   spinning: boolean;
-  onResult: (text: string, color: string) => void;
+  onResult: (text: string, color: string, optionId: string) => void;
   highlightOptionId: string | null;
 }
 
-// Dice dot positions for values 1-6 (using 3x3 grid indices 0-8)
 const DICE_PATTERNS: Record<number, number[]> = {
   1: [4],
   2: [2, 6],
@@ -34,18 +34,26 @@ function DiceFace({ value }: { value: number }) {
   );
 }
 
-export default function DiceMode({ options, spinning, onResult, highlightOptionId }: Props) {
+export default function DiceMode({
+  options,
+  excludedOptionIds,
+  spinning,
+  onResult,
+  highlightOptionId,
+}: Props) {
   const [diceValue, setDiceValue] = useState(1);
   const [rolling, setRolling] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const availableOptions = options.filter(o => !excludedOptionIds.includes(o.id));
 
   useEffect(() => {
     if (!spinning) return;
 
     setRolling(true);
 
-    const count = options.length;
+    const count = availableOptions.length;
     let tick = 0;
     const totalTicks = 20;
 
@@ -57,13 +65,13 @@ export default function DiceMode({ options, spinning, onResult, highlightOptionI
       if (tick >= totalTicks) {
         if (intervalRef.current) clearInterval(intervalRef.current);
 
-        const winIdx = Math.floor(Math.random() * count);
-        const finalDiceVal = Math.min(winIdx + 1, 6);
+        const winOpt = availableOptions[Math.floor(Math.random() * availableOptions.length)];
+        const finalDiceVal = Math.min(availableOptions.indexOf(winOpt) + 1, 6);
         setDiceValue(finalDiceVal);
 
         timeoutRef.current = setTimeout(() => {
           setRolling(false);
-          onResult(options[winIdx].text, options[winIdx].color);
+          onResult(winOpt.text, winOpt.color, winOpt.id);
         }, 400);
       }
     }, 100);
@@ -84,16 +92,24 @@ export default function DiceMode({ options, spinning, onResult, highlightOptionI
 
       {/* Options grid showing all options */}
       <div className="dice-options-grid">
-        {options.map((opt, i) => (
-          <div
-            key={opt.id}
-            className={`dice-option-card ${highlightOptionId === opt.id ? 'highlight' : ''}`}
-            style={{ background: opt.color + 'cc' }}
-          >
-            <span style={{ marginRight: 4, opacity: 0.7, fontSize: 12 }}>{i + 1}.</span>
-            {opt.text}
-          </div>
-        ))}
+        {options.map((opt, i) => {
+          const isExcluded = excludedOptionIds.includes(opt.id);
+          return (
+            <div
+              key={opt.id}
+              className={`dice-option-card ${highlightOptionId === opt.id ? 'highlight' : ''} ${isExcluded ? 'excluded' : ''}`}
+              style={{
+                background: isExcluded ? '#3a4a5a' : opt.color + 'cc',
+                opacity: isExcluded ? 0.5 : 1,
+                textDecoration: isExcluded ? 'line-through' : 'none',
+              }}
+            >
+              <span style={{ marginRight: 4, opacity: 0.7, fontSize: 12 }}>{i + 1}.</span>
+              {opt.text}
+              {isExcluded && <span style={{ marginLeft: 4, fontSize: 10 }}>✕</span>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

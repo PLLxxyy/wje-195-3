@@ -9,6 +9,7 @@ export interface WheelScheme {
   name: string;
   options: WheelOption[];
   mode: DrawMode;
+  excludedOptionIds: string[];
 }
 
 export type DrawMode = 'wheel' | 'tube' | 'dice';

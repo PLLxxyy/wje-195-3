@@ -3,17 +3,26 @@ import { WheelOption } from '../types';
 
 interface Props {
   options: WheelOption[];
+  excludedOptionIds: string[];
   spinning: boolean;
-  onResult: (text: string, color: string) => void;
+  onResult: (text: string, color: string, optionId: string) => void;
   highlightOptionId: string | null;
 }
 
-export default function WheelCanvas({ options, spinning, onResult, highlightOptionId }: Props) {
+export default function WheelCanvas({
+  options,
+  excludedOptionIds,
+  spinning,
+  onResult,
+  highlightOptionId,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const angleRef = useRef(0);
   const velocityRef = useRef(0);
   const [size, setSize] = useState(400);
+
+  const availableOptions = options.filter(o => !excludedOptionIds.includes(o.id));
 
   // Responsive size
   useEffect(() => {
@@ -80,6 +89,7 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
       const startAngle = i * sliceAngle - Math.PI / 2;
       const endAngle = startAngle + sliceAngle;
       const opt = options[i];
+      const isExcluded = excludedOptionIds.includes(opt.id);
 
       // Draw slice
       ctx.beginPath();
@@ -89,8 +99,13 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
 
       // Gradient fill
       const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-      grad.addColorStop(0, lightenColor(opt.color, 30));
-      grad.addColorStop(1, opt.color);
+      if (isExcluded) {
+        grad.addColorStop(0, '#4a5a6a');
+        grad.addColorStop(1, '#3a4a5a');
+      } else {
+        grad.addColorStop(0, lightenColor(opt.color, 30));
+        grad.addColorStop(1, opt.color);
+      }
       ctx.fillStyle = grad;
       ctx.fill();
 
@@ -105,7 +120,7 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
       ctx.rotate(textAngle);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = isExcluded ? '#6a7a8c' : '#fff';
       ctx.shadowColor = 'rgba(0,0,0,0.4)';
       ctx.shadowBlur = 3;
 
@@ -116,7 +131,8 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
       const baseFontSize = count <= 6 ? 15 : count <= 9 ? 13 : 11;
       ctx.font = `bold ${baseFontSize}px sans-serif`;
 
-      ctx.fillText(opt.text, textRadius, 0, maxTextWidth);
+      const displayText = isExcluded ? `${opt.text} ✕` : opt.text;
+      ctx.fillText(displayText, textRadius, 0, maxTextWidth);
       ctx.restore();
     }
 
@@ -160,7 +176,7 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
         ctx.restore();
       }
     }
-  }, [options, size, highlightOptionId, spinning]);
+  }, [options, excludedOptionIds, size, highlightOptionId, spinning]);
 
   // Animate spinning
   useEffect(() => {
@@ -187,16 +203,12 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
       if (velocityRef.current > minVelocity) {
         animRef.current = requestAnimationFrame(animate);
       } else {
-        // Determine result
-        const count = options.length;
-        if (count === 0) return;
+        // Determine result using available options only
+        if (availableOptions.length === 0) return;
 
-        const sliceAngle = (Math.PI * 2) / count;
-        // Pointer is at top (12 o'clock), which is -PI/2 in canvas coords
-        // After rotation, the segment at top is determined by: (-angle) mod 2PI / sliceAngle
-        let normalizedAngle = (-angleRef.current % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-        const resultIndex = Math.floor(normalizedAngle / sliceAngle) % count;
-        onResult(options[resultIndex].text, options[resultIndex].color);
+        // Pick a random available option
+        const winOpt = availableOptions[Math.floor(Math.random() * availableOptions.length)];
+        onResult(winOpt.text, winOpt.color, winOpt.id);
       }
     };
 
@@ -212,7 +224,7 @@ export default function WheelCanvas({ options, spinning, onResult, highlightOpti
     if (!spinning) {
       drawWheel(angleRef.current);
     }
-  }, [options, highlightOptionId, drawWheel, spinning]);
+  }, [options, excludedOptionIds, highlightOptionId, drawWheel, spinning]);
 
   return (
     <div className="canvas-wrapper" style={{ width: size, height: size }}>

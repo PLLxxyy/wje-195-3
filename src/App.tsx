@@ -101,7 +101,11 @@ export default function App() {
 
   const removeOption = useCallback((optId: string) => {
     if (!activeScheme || activeScheme.options.length <= 2) return;
-    updateScheme(s => ({ ...s, options: s.options.filter(o => o.id !== optId) }));
+    updateScheme(s => ({
+      ...s,
+      options: s.options.filter(o => o.id !== optId),
+      excludedOptionIds: s.excludedOptionIds.filter(id => id !== optId),
+    }));
   }, [activeScheme, updateScheme]);
 
   const updateOption = useCallback((optId: string, field: 'text' | 'color', value: string) => {
@@ -111,9 +115,34 @@ export default function App() {
     }));
   }, [updateScheme]);
 
-  const handleDrawResult = useCallback((text: string, color: string) => {
+  const excludeOption = useCallback((optId: string) => {
+    updateScheme(s => {
+      if (s.excludedOptionIds.includes(optId)) return s;
+      return { ...s, excludedOptionIds: [...s.excludedOptionIds, optId] };
+    });
+  }, [updateScheme]);
+
+  const restoreOption = useCallback((optId: string) => {
+    updateScheme(s => ({
+      ...s,
+      excludedOptionIds: s.excludedOptionIds.filter(id => id !== optId),
+    }));
+  }, [updateScheme]);
+
+  const restoreAllOptions = useCallback(() => {
+    updateScheme(s => ({ ...s, excludedOptionIds: [] }));
+  }, [updateScheme]);
+
+  const handleDrawResult = useCallback((text: string, color: string, optionId: string) => {
     setResult({ text, color });
     setSpinning(false);
+    if (optionId) {
+      setHighlightId(optionId);
+      updateScheme(s => {
+        if (s.excludedOptionIds.includes(optionId)) return s;
+        return { ...s, excludedOptionIds: [...s.excludedOptionIds, optionId] };
+      });
+    }
     const record: HistoryRecord = {
       id: generateId(),
       schemeId: activeId,
@@ -128,14 +157,18 @@ export default function App() {
       saveHistory(next);
       return next;
     });
-  }, [activeId, activeScheme, mode]);
+  }, [activeId, activeScheme, mode, updateScheme]);
+
+  const availableOptions = activeScheme
+    ? activeScheme.options.filter(o => !activeScheme.excludedOptionIds.includes(o.id))
+    : [];
 
   const handleStart = useCallback(() => {
-    if (!activeScheme || activeScheme.options.length < 2) return;
+    if (!activeScheme || availableOptions.length < 2) return;
     setSpinning(true);
     setResult(null);
     setHighlightId(null);
-  }, [activeScheme]);
+  }, [activeScheme, availableOptions.length]);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
@@ -149,6 +182,7 @@ export default function App() {
       id: generateId(),
       name: saveName.trim(),
       options: activeScheme.options.map(o => ({ ...o, id: generateId() })),
+      excludedOptionIds: [],
     };
     setSchemes(prev => {
       const next = [...prev, newScheme];
@@ -253,15 +287,32 @@ export default function App() {
           <div className="panel">
             <div className="panel-title">
               <span className="icon">✏️</span> 选项编辑
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6a7a8c' }}>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6a7a8c', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {activeScheme.excludedOptionIds.length > 0 && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '2px 10px', fontSize: 12 }}
+                    onClick={restoreAllOptions}
+                  >
+                    恢复全部
+                  </button>
+                )}
                 {activeScheme.options.length}/12
+                {activeScheme.excludedOptionIds.length > 0 && (
+                  <span style={{ color: '#e94560' }}>
+                    · 已排除 {activeScheme.excludedOptionIds.length}
+                  </span>
+                )}
               </span>
             </div>
             <OptionEditor
               options={activeScheme.options}
+              excludedOptionIds={activeScheme.excludedOptionIds}
               onAdd={addOption}
               onRemove={removeOption}
               onUpdate={updateOption}
+              onExclude={excludeOption}
+              onRestore={restoreOption}
             />
           </div>
         </div>
@@ -274,6 +325,7 @@ export default function App() {
               <div className="wheel-area">
                 <WheelCanvas
                   options={activeScheme.options}
+                  excludedOptionIds={activeScheme.excludedOptionIds}
                   spinning={spinning}
                   onResult={handleDrawResult}
                   highlightOptionId={highlightId}
@@ -281,7 +333,7 @@ export default function App() {
                 <button
                   className="spin-btn"
                   onClick={handleStart}
-                  disabled={spinning || activeScheme.options.length < 2}
+                  disabled={spinning || availableOptions.length < 2}
                 >
                   {spinning ? '旋转中...' : '开始'}
                 </button>
@@ -291,17 +343,14 @@ export default function App() {
               <div className="tube-area">
                 <DrawTube
                   options={activeScheme.options}
+                  excludedOptionIds={activeScheme.excludedOptionIds}
                   spinning={spinning}
-                  onResult={(text, color) => {
-                    handleDrawResult(text, color);
-                    const opt = activeScheme.options.find(o => o.text === text);
-                    if (opt) setHighlightId(opt.id);
-                  }}
+                  onResult={handleDrawResult}
                 />
                 <button
                   className="spin-btn"
                   onClick={handleStart}
-                  disabled={spinning || activeScheme.options.length < 2}
+                  disabled={spinning || availableOptions.length < 2}
                 >
                   {spinning ? '摇签中...' : '抽签'}
                 </button>
@@ -311,18 +360,15 @@ export default function App() {
               <div className="dice-area">
                 <DiceMode
                   options={activeScheme.options}
+                  excludedOptionIds={activeScheme.excludedOptionIds}
                   spinning={spinning}
-                  onResult={(text, color) => {
-                    handleDrawResult(text, color);
-                    const opt = activeScheme.options.find(o => o.text === text);
-                    if (opt) setHighlightId(opt.id);
-                  }}
+                  onResult={handleDrawResult}
                   highlightOptionId={highlightId}
                 />
                 <button
                   className="spin-btn"
                   onClick={handleStart}
-                  disabled={spinning || activeScheme.options.length < 2}
+                  disabled={spinning || availableOptions.length < 2}
                 >
                   {spinning ? '掷骰中...' : '掷骰子'}
                 </button>

@@ -7,7 +7,12 @@ const ACTIVE_KEY = 'lucky_wheel_active_scheme';
 export function loadSchemes(): WheelScheme[] {
   try {
     const raw = localStorage.getItem(SCHEMES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as WheelScheme[];
+    return parsed.map(s => ({
+      ...s,
+      excludedOptionIds: s.excludedOptionIds || [],
+    }));
   } catch {
     return [];
   }
@@ -64,5 +69,6 @@ export function createDefaultScheme(): WheelScheme {
     name: '默认方案',
     options,
     mode: 'wheel',
+    excludedOptionIds: [],
   };
 }

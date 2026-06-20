@@ -240,6 +240,11 @@
         border-color: #e94560;
       }
 
+      .option-item.excluded {
+        border-color: rgba(233, 69, 96, 0.2);
+        background: rgba(233, 69, 96, 0.04);
+      }
+
       .color-dot {
         width: 28px;
         height: 28px;
@@ -302,6 +307,16 @@
       .option-btn.delete:hover {
         background: rgba(233, 69, 96, 0.2);
         color: #e94560;
+      }
+
+      .option-btn.exclude:hover {
+        background: rgba(245, 166, 35, 0.2);
+        color: #f5a623;
+      }
+
+      .option-btn.restore:hover {
+        background: rgba(39, 174, 96, 0.2);
+        color: #27ae60;
       }
 
       .add-option-btn {
@@ -509,6 +524,10 @@
         animation: stickBounce 0.5s ease;
       }
 
+      .tube-stick.excluded {
+        filter: grayscale(0.8);
+      }
+
       @keyframes stickBounce {
         0%, 100% { transform: scale(1.2) translateY(0); }
         50% { transform: scale(1.2) translateY(-10px); }
@@ -601,6 +620,10 @@
         border-color: #f5a623;
         box-shadow: 0 0 16px rgba(245, 166, 35, 0.4);
         transform: scale(1.05);
+      }
+
+      .dice-option-card.excluded {
+        cursor: not-allowed;
       }
 
       /* History section */
